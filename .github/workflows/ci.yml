@@ -5,11 +5,95 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+        - development
+        - staging
+        - production
+      terraform_action:
+        description: 'Terraform action to perform'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+        - plan
+        - apply
+        - destroy
+
+env:
+  TF_VERSION: "~1.5"
+  TERRAFORM_DIR: "terraform-oci"
+  CHECKOV_VERSION: "3.1.34"
 
 jobs:
+  # Job 1: Pre-validation checks
+  pre-validation:
+    name: Pre-validation Checks
+    runs-on: ubuntu-latest
+    outputs:
+      terraform-changed: ${{ steps.changes.outputs.terraform }}
+      docs-changed: ${{ steps.changes.outputs.docs }}
+      tests-changed: ${{ steps.changes.outputs.tests }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Detect file changes
+      uses: dorny/paths-filter@v2
+      id: changes
+      with:
+        filters: |
+          terraform:
+            - 'terraform-oci/**/*.tf'
+            - 'terraform-oci/**/*.tfvars'
+            - 'terraform-oci/**/*.hcl'
+          docs:
+            - '**/*.md'
+            - 'docs/**/*'
+          tests:
+            - 'tests/**/*'
+            - '**/*test*'
+    
+    - name: Validate repository structure
+      run: |
+        echo "Validating repository structure..."
+        required_dirs=("terraform-oci" "tests" "docs" ".github")
+        for dir in "${required_dirs[@]}"; do
+          if [ ! -d "$dir" ]; then
+            echo "❌ Missing required directory: $dir"
+            exit 1
+          fi
+          echo "✅ Found directory: $dir"
+        done
+        
+        required_files=("README.md" "PROJECT_PLAN.md" "SRS.md")
+        for file in "${required_files[@]}"; do
+          if [ ! -f "$file" ]; then
+            echo "❌ Missing required file: $file"
+            exit 1
+          fi
+          echo "✅ Found file: $file"
+        done
+
+  # Job 2: Terraform Validation
   terraform-validate:
     name: Terraform Validation
     runs-on: ubuntu-latest
+    needs: pre-validation
+    if: needs.pre-validation.outputs.terraform-changed == 'true' || github.event_name == 'workflow_dispatch'
+    
+    strategy:
+      matrix:
+        terraform-dir: ["terraform-oci", "terraform-oci/free-tier", "terraform-oci/terraform-oci"]
     
     steps:
     - name: Checkout code
@@ -18,25 +102,53 @@ jobs:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: ~1.0
+        terraform_version: ${{ env.TF_VERSION }}
+        
+    - name: Cache Terraform providers
+      uses: actions/cache@v3
+      with:
+        path: ~/.terraform.d/plugin-cache
+        key: ${{ runner.os }}-terraform-${{ hashFiles('**/.terraform.lock.hcl') }}
+        restore-keys: |
+          ${{ runner.os }}-terraform-
         
     - name: Terraform Format Check
-      run: terraform fmt -check -recursive
-      
+      run: |
+        if [ -d "${{ matrix.terraform-dir }}" ]; then
+          cd "${{ matrix.terraform-dir }}"
+          terraform fmt -check -recursive -diff
+        else
+          echo "Directory ${{ matrix.terraform-dir }} not found, skipping..."
+        fi
+        
     - name: Terraform Init
       run: |
-        cd terraform
-        terraform init -backend=false
+        if [ -d "${{ matrix.terraform-dir }}" ] && [ -f "${{ matrix.terraform-dir }}/main.tf" ]; then
+          cd "${{ matrix.terraform-dir }}"
+          terraform init -backend=false
+        else
+          echo "Skipping terraform init for ${{ matrix.terraform-dir }}"
+        fi
         
     - name: Terraform Validate
       run: |
-        cd terraform
-        terraform validate
+        if [ -d "${{ matrix.terraform-dir }}" ] && [ -f "${{ matrix.terraform-dir }}/main.tf" ]; then
+          cd "${{ matrix.terraform-dir }}"
+          terraform validate
+        else
+          echo "Skipping terraform validate for ${{ matrix.terraform-dir }}"
+        fi
         
-    - name: Terraform Plan
+    - name: Terraform Plan (Dry Run)
+      if: github.event_name != 'workflow_dispatch' || github.event.inputs.terraform_action == 'plan'
       run: |
-        cd terraform
-        terraform plan -out=tfplan
+        if [ -d "${{ matrix.terraform-dir }}" ] && [ -f "${{ matrix.terraform-dir }}/main.tf" ]; then
+          cd "${{ matrix.terraform-dir }}"
+          terraform plan -input=false -no-color -out=tfplan
+          terraform show -no-color tfplan > tfplan.txt
+        else
+          echo "Skipping terraform plan for ${{ matrix.terraform-dir }}"
+        fi
       env:
         TF_VAR_tenancy_ocid: ${{ secrets.OCI_TENANCY_OCID }}
         TF_VAR_compartment_ocid: ${{ secrets.OCI_COMPARTMENT_OCID }}
@@ -44,10 +156,71 @@ jobs:
         TF_VAR_fingerprint: ${{ secrets.OCI_FINGERPRINT }}
         TF_VAR_private_key: ${{ secrets.OCI_PRIVATE_KEY }}
         TF_VAR_region: ${{ secrets.OCI_REGION }}
+        
+    - name: Upload Terraform Plan
+      if: success()
+      uses: actions/upload-artifact@v3
+      with:
+        name: terraform-plan-${{ matrix.terraform-dir }}
+        path: ${{ matrix.terraform-dir }}/tfplan*
+        retention-days: 30
 
+  # Job 3: Infrastructure Tests
+  infrastructure-tests:
+    name: Infrastructure Tests
+    runs-on: ubuntu-latest
+    needs: [pre-validation, terraform-validate]
+    if: needs.pre-validation.outputs.tests-changed == 'true' || needs.pre-validation.outputs.terraform-changed == 'true' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install testing dependencies
+      run: |
+        pip install pytest terratest awscli
+        
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+        
+    - name: Run infrastructure tests
+      run: |
+        chmod +x tests/run_all_tests.sh
+        ./tests/run_all_tests.sh
+      env:
+        OCI_TENANCY_OCID: ${{ secrets.OCI_TENANCY_OCID }}
+        OCI_COMPARTMENT_OCID: ${{ secrets.OCI_COMPARTMENT_OCID }}
+        OCI_USER_OCID: ${{ secrets.OCI_USER_OCID }}
+        OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+        OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
+        OCI_REGION: ${{ secrets.OCI_REGION }}
+        
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: infrastructure-test-results
+        path: tests/results/
+        retention-days: 30
+
+  # Job 4: Security Scanning
   security-scan:
     name: Security Scanning
     runs-on: ubuntu-latest
+    needs: pre-validation
+    if: needs.pre-validation.outputs.terraform-changed == 'true' || github.event_name == 'workflow_dispatch'
+    
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
     
     steps:
     - name: Checkout code
@@ -60,8 +233,10 @@ jobs:
         scan-ref: '.'
         format: 'sarif'
         output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH,MEDIUM'
         
     - name: Upload Trivy scan results to GitHub Security tab
+      if: always()
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: 'trivy-results.sarif'
@@ -71,11 +246,55 @@ jobs:
       with:
         directory: .
         framework: terraform
-        output_format: cli
+        output_format: cli,json,sarif
+        output_file_path: checkov-report
+        soft_fail: true
         
-  lint:
-    name: Code Linting
+    - name: Upload Checkov SARIF results
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: checkov-report.sarif
+        
+    - name: Run TFSec security scanner
+      uses: aquasecurity/tfsec-action@v1.0.3
+      with:
+        working_directory: './terraform-oci'
+        format: 'sarif'
+        soft_fail: true
+        
+    - name: Upload TFSec SARIF results
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: tfsec.sarif
+        
+    - name: Run Snyk Infrastructure as Code scan
+      if: vars.SNYK_TOKEN != ''
+      uses: snyk/actions/iac@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        file: terraform-oci/
+        args: --severity-threshold=high
+        
+    - name: Upload security scan artifacts
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-scan-results
+        path: |
+          trivy-results.sarif
+          checkov-report*
+          tfsec.sarif
+        retention-days: 30
+
+  # Job 5: Code Quality & Linting
+  code-quality:
+    name: Code Quality & Linting
     runs-on: ubuntu-latest
+    needs: pre-validation
+    if: needs.pre-validation.outputs.terraform-changed == 'true' || github.event_name == 'workflow_dispatch'
     
     steps:
     - name: Checkout code
@@ -83,10 +302,237 @@ jobs:
       
     - name: Setup TFLint
       uses: terraform-linters/setup-tflint@v4
-      
+      with:
+        tflint_version: latest
+        
+    - name: Cache TFLint plugins
+      uses: actions/cache@v3
+      with:
+        path: ~/.tflint.d/plugins
+        key: ${{ runner.os }}-tflint-${{ hashFiles('.tflint.hcl') }}
+        restore-keys: |
+          ${{ runner.os }}-tflint-
+        
     - name: Run TFLint
       run: |
-        cd terraform
-        tflint --init
-        tflint
+        find . -name "*.tf" -type f -not -path "*/.*" | while read -r tf_file; do
+          dir=$(dirname "$tf_file")
+          echo "Linting directory: $dir"
+          cd "$dir"
+          tflint --init
+          tflint --format=compact
+          cd - > /dev/null
+        done
+        
+    - name: Setup Python for additional linting
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install linting tools
+      run: |
+        pip install pre-commit yamllint
+        
+    - name: Run YAML linting
+      run: |
+        find . -name "*.yml" -o -name "*.yaml" | xargs yamllint -d relaxed
+        
+    - name: Run shell script linting
+      run: |
+        sudo apt-get update && sudo apt-get install -y shellcheck
+        find . -name "*.sh" -type f | xargs shellcheck
+
+  # Job 6: Documentation Checks
+  documentation-check:
+    name: Documentation Checks
+    runs-on: ubuntu-latest
+    needs: pre-validation
+    if: needs.pre-validation.outputs.docs-changed == 'true' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js for markdown linting
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install markdown linting tools
+      run: |
+        npm install -g markdownlint-cli
+        
+    - name: Run markdown linting
+      run: |
+        markdownlint '**/*.md' --ignore node_modules --ignore .git
+        
+    - name: Check for required documentation files
+      run: |
+        required_docs=("README.md" "PROJECT_PLAN.md" "SRS.md" "SECURITY.md")
+        for doc in "${required_docs[@]}"; do
+          if [ ! -f "$doc" ]; then
+            echo "❌ Missing required documentation: $doc"
+            exit 1
+          fi
+          echo "✅ Found documentation: $doc"
+        done
+        
+    - name: Validate documentation completeness
+      run: |
+        # Check if README has proper sections
+        if ! grep -q "## Overview" README.md; then
+          echo "❌ README.md missing Overview section"
+          exit 1
+        fi
+        if ! grep -q "## Prerequisites" README.md; then
+          echo "❌ README.md missing Prerequisites section"
+          exit 1
+        fi
+        echo "✅ README.md has required sections"
+        
+        # Check if PROJECT_PLAN.md has proper structure
+        if ! grep -q "## Project Scope" PROJECT_PLAN.md; then
+          echo "❌ PROJECT_PLAN.md missing Project Scope section"
+          exit 1
+        fi
+        echo "✅ PROJECT_PLAN.md has required sections"
+        
+    - name: Generate documentation report
+      run: |
+        echo "# Documentation Report" > doc-report.md
+        echo "Generated on: $(date)" >> doc-report.md
+        echo "" >> doc-report.md
+        echo "## Files Checked" >> doc-report.md
+        find . -name "*.md" -type f | sort >> doc-report.md
+        
+    - name: Upload documentation report
+      uses: actions/upload-artifact@v3
+      with:
+        name: documentation-report
+        path: doc-report.md
+        retention-days: 30
+
+  # Job 7: Deployment Automation (Conditional)
+  deploy:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: [terraform-validate, infrastructure-tests, security-scan, code-quality]
+    if: |
+      github.event_name == 'workflow_dispatch' && (
+        github.event.inputs.terraform_action == 'apply' || 
+        github.event.inputs.terraform_action == 'destroy'
+      ) && github.ref == 'refs/heads/main'
+    
+    environment: 
+      name: ${{ github.event.inputs.environment || 'development' }}
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+        
+    - name: Download Terraform Plan
+      if: github.event.inputs.terraform_action == 'apply'
+      uses: actions/download-artifact@v3
+      with:
+        name: terraform-plan-${{ env.TERRAFORM_DIR }}
+        path: ${{ env.TERRAFORM_DIR }}/
+        
+    - name: Terraform Init (with backend)
+      run: |
+        cd ${{ env.TERRAFORM_DIR }}
+        terraform init
+      env:
+        TF_VAR_tenancy_ocid: ${{ secrets.OCI_TENANCY_OCID }}
+        TF_VAR_compartment_ocid: ${{ secrets.OCI_COMPARTMENT_OCID }}
+        TF_VAR_user_ocid: ${{ secrets.OCI_USER_OCID }}
+        TF_VAR_fingerprint: ${{ secrets.OCI_FINGERPRINT }}
+        TF_VAR_private_key: ${{ secrets.OCI_PRIVATE_KEY }}
+        TF_VAR_region: ${{ secrets.OCI_REGION }}
+        
+    - name: Terraform Apply
+      if: github.event.inputs.terraform_action == 'apply'
+      run: |
+        cd ${{ env.TERRAFORM_DIR }}
+        terraform apply -input=false -auto-approve tfplan
+      env:
+        TF_VAR_tenancy_ocid: ${{ secrets.OCI_TENANCY_OCID }}
+        TF_VAR_compartment_ocid: ${{ secrets.OCI_COMPARTMENT_OCID }}
+        TF_VAR_user_ocid: ${{ secrets.OCI_USER_OCID }}
+        TF_VAR_fingerprint: ${{ secrets.OCI_FINGERPRINT }}
+        TF_VAR_private_key: ${{ secrets.OCI_PRIVATE_KEY }}
+        TF_VAR_region: ${{ secrets.OCI_REGION }}
+        
+    - name: Terraform Destroy
+      if: github.event.inputs.terraform_action == 'destroy'
+      run: |
+        cd ${{ env.TERRAFORM_DIR }}
+        terraform destroy -input=false -auto-approve
+      env:
+        TF_VAR_tenancy_ocid: ${{ secrets.OCI_TENANCY_OCID }}
+        TF_VAR_compartment_ocid: ${{ secrets.OCI_COMPARTMENT_OCID }}
+        TF_VAR_user_ocid: ${{ secrets.OCI_USER_OCID }}
+        TF_VAR_fingerprint: ${{ secrets.OCI_FINGERPRINT }}
+        TF_VAR_private_key: ${{ secrets.OCI_PRIVATE_KEY }}
+        TF_VAR_region: ${{ secrets.OCI_REGION }}
+        
+    - name: Post-deployment validation
+      if: github.event.inputs.terraform_action == 'apply'
+      run: |
+        cd ${{ env.TERRAFORM_DIR }}
+        terraform output -json > outputs.json
+        echo "Deployment completed successfully!"
+        
+    - name: Upload deployment artifacts
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: deployment-artifacts-${{ github.event.inputs.environment }}
+        path: |
+          ${{ env.TERRAFORM_DIR }}/outputs.json
+          ${{ env.TERRAFORM_DIR }}/terraform.tfstate*
+        retention-days: 90
+
+  # Job 8: Notification
+  notify:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: [terraform-validate, infrastructure-tests, security-scan, code-quality, documentation-check, deploy]
+    if: always()
+    
+    steps:
+    - name: Determine workflow status
+      id: status
+      run: |
+        if [[ "${{ needs.terraform-validate.result }}" == "failure" || 
+              "${{ needs.infrastructure-tests.result }}" == "failure" || 
+              "${{ needs.security-scan.result }}" == "failure" || 
+              "${{ needs.code-quality.result }}" == "failure" || 
+              "${{ needs.documentation-check.result }}" == "failure" || 
+              "${{ needs.deploy.result }}" == "failure" ]]; then
+          echo "status=failed" >> $GITHUB_OUTPUT
+        else
+          echo "status=success" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Create workflow summary
+      run: |
+        echo "# CI/CD Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Workflow Status:** ${{ steps.status.outputs.status == 'success' && '✅ Success' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Triggered by:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Job Results" >> $GITHUB_STEP_SUMMARY
+        echo "- Terraform Validation: ${{ needs.terraform-validate.result == 'success' && '✅' || needs.terraform-validate.result == 'failure' && '❌' || '⏭️' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Infrastructure Tests: ${{ needs.infrastructure-tests.result == 'success' && '✅' || needs.infrastructure-tests.result == 'failure' && '❌' || '⏭️' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Security Scanning: ${{ needs.security-scan.result == 'success' && '✅' || needs.security-scan.result == 'failure' && '❌' || '⏭️' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Code Quality: ${{ needs.code-quality.result == 'success' && '✅' || needs.code-quality.result == 'failure' && '❌' || '⏭️' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Documentation: ${{ needs.documentation-check.result == 'success' && '✅' || needs.documentation-check.result == 'failure' && '❌' || '⏭️' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Deployment: ${{ needs.deploy.result == 'success' && '✅' || needs.deploy.result == 'failure' && '❌' || '⏭️' }}" >> $GITHUB_STEP_SUMMARY
 
