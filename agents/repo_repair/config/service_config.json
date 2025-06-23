@@ -1,0 +1,14 @@
+{
+    "name": "repo_repair",
+    "version": "1.0.0",
+    "description": "Repository repair and maintenance tool",
+    "endpoints": {
+        "health": "/health",
+        "metrics": "/metrics",
+        "execute": "/execute"
+    },
+    "port": 8081,
+    "log_level": "INFO",
+    "max_concurrent_jobs": 10,
+    "timeout_seconds": 300
+}

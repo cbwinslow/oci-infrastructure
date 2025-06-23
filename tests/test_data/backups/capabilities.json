@@ -1,0 +1,201 @@
+{
+  "capabilities": [
+    {
+      "name": "fix_permissions",
+      "description": "Fix file and directory permissions in repositories",
+      "category": "repository_maintenance",
+      "priority": "high",
+      "implementation": {
+        "script": "scripts/fix_permissions.sh",
+        "timeout": 60,
+        "retry_count": 2
+      },
+      "parameters": {
+        "target_path": {
+          "type": "string",
+          "required": true,
+          "description": "Path to repository or directory"
+        },
+        "fix_executable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Fix executable permissions for scripts"
+        },
+        "fix_ownership": {
+          "type": "boolean",
+          "default": false,
+          "description": "Fix file ownership (requires elevated privileges)"
+        }
+      },
+      "outputs": {
+        "fixed_files": {
+          "type": "array",
+          "description": "List of files with fixed permissions"
+        },
+        "error_files": {
+          "type": "array",
+          "description": "List of files that couldn't be fixed"
+        }
+      }
+    },
+    {
+      "name": "sync_repos",
+      "description": "Synchronize repositories with remote origins",
+      "category": "repository_sync",
+      "priority": "medium",
+      "implementation": {
+        "script": "scripts/sync_repos.sh",
+        "timeout": 300,
+        "retry_count": 3
+      },
+      "parameters": {
+        "repo_path": {
+          "type": "string",
+          "required": true,
+          "description": "Path to repository"
+        },
+        "force_sync": {
+          "type": "boolean",
+          "default": false,
+          "description": "Force synchronization even with conflicts"
+        },
+        "branch": {
+          "type": "string",
+          "default": "main",
+          "description": "Branch to synchronize"
+        },
+        "remote": {
+          "type": "string",
+          "default": "origin",
+          "description": "Remote repository name"
+        }
+      },
+      "outputs": {
+        "sync_status": {
+          "type": "string",
+          "description": "Status of synchronization (success/failure/conflict)"
+        },
+        "commits_pulled": {
+          "type": "integer",
+          "description": "Number of commits pulled from remote"
+        },
+        "commits_pushed": {
+          "type": "integer",
+          "description": "Number of commits pushed to remote"
+        }
+      }
+    },
+    {
+      "name": "handle_changes",
+      "description": "Handle and process repository changes",
+      "category": "change_management",
+      "priority": "high",
+      "implementation": {
+        "script": "scripts/handle_changes.sh",
+        "timeout": 180,
+        "retry_count": 1
+      },
+      "parameters": {
+        "repo_path": {
+          "type": "string",
+          "required": true,
+          "description": "Path to repository"
+        },
+        "change_type": {
+          "type": "string",
+          "enum": ["commit", "merge", "rebase", "conflict"],
+          "required": true,
+          "description": "Type of change to handle"
+        },
+        "auto_commit": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically commit changes"
+        },
+        "commit_message": {
+          "type": "string",
+          "default": "Automated repository maintenance",
+          "description": "Default commit message"
+        }
+      },
+      "outputs": {
+        "changes_processed": {
+          "type": "integer",
+          "description": "Number of changes processed"
+        },
+        "files_modified": {
+          "type": "array",
+          "description": "List of modified files"
+        },
+        "conflicts_resolved": {
+          "type": "integer",
+          "description": "Number of conflicts resolved"
+        }
+      }
+    }
+  ],
+  "workflows": [
+    {
+      "name": "full_repo_repair",
+      "description": "Complete repository repair workflow",
+      "steps": [
+        {
+          "capability": "fix_permissions",
+          "order": 1,
+          "condition": "always"
+        },
+        {
+          "capability": "sync_repos",
+          "order": 2,
+          "condition": "on_success"
+        },
+        {
+          "capability": "handle_changes",
+          "order": 3,
+          "condition": "on_changes_detected"
+        }
+      ],
+      "rollback": {
+        "enabled": true,
+        "strategy": "restore_backup"
+      }
+    }
+  ],
+  "integrations": {
+    "git": {
+      "version": ">=2.0",
+      "required": true
+    },
+    "github": {
+      "api_version": "v4",
+      "required": false,
+      "features": ["issues", "pull_requests", "webhooks"]
+    },
+    "jira": {
+      "api_version": "v3",
+      "required": false,
+      "features": ["issues", "transitions"]
+    }
+  },
+  "monitoring": {
+    "metrics": [
+      "execution_time",
+      "success_rate",
+      "files_processed",
+      "errors_encountered"
+    ],
+    "alerts": [
+      {
+        "condition": "success_rate < 0.8",
+        "severity": "warning",
+        "action": "notify_admin"
+      },
+      {
+        "condition": "errors_encountered > 10",
+        "severity": "critical",
+        "action": "disable_agent"
+      }
+    ]
+  }
+}
+
