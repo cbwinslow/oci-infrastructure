@@ -32,6 +32,36 @@ oci-infrastructure/
 
 Detailed instructions for setting up and using this infrastructure will be provided as the project develops.
 
+## Repository Repair Tool
+
+Automated tool for maintaining repository health:
+- Permission management
+- Change handling
+- Repository synchronization
+- Documentation updates
+
+The repository repair tool ensures optimal repository maintenance by:
+- Monitoring file permissions and correcting inconsistencies
+- Tracking and managing repository changes automatically
+- Synchronizing repository state across different environments
+- Maintaining up-to-date documentation and metadata
+
+### Usage
+
+The repository repair tool can be invoked manually or scheduled to run automatically:
+
+```bash
+# Manual execution
+./scripts/repo-repair-tool.sh
+
+# Check repository health status
+./scripts/repo-repair-tool.sh --status
+
+# Perform specific repairs
+./scripts/repo-repair-tool.sh --fix-permissions
+./scripts/repo-repair-tool.sh --sync-docs
+```
+
 ## Security
 
 Please refer to SECURITY.md for security considerations and compliance requirements.
