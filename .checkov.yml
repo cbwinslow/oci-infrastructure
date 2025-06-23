@@ -1,0 +1,154 @@
+# Checkov Configuration File
+# This file configures Checkov for infrastructure security scanning
+
+# Basic configuration
+directory: "."
+framework: 
+  - terraform
+  - kubernetes
+  - dockerfile
+  - helm
+  - secrets
+
+# Output configuration
+output: 
+  - cli
+  - json
+  - sarif
+
+# Output file paths
+output-file-path: "checkov-report"
+
+# Quiet mode (reduce verbosity)
+quiet: false
+
+# Compact output
+compact: true
+
+# Only show failed checks
+skip-results-upload: true
+
+# External checks directory (if you have custom checks)
+# external-checks-dir: ".checkov/custom-checks"
+
+# Download external modules
+download-external-modules: true
+
+# Check specific policies/frameworks
+check:
+  # OCI-specific checks
+  - CKV_OCI_1   # Ensure no hardcoded secrets in Terraform
+  - CKV_OCI_2   # Ensure OCI IAM password policy requires minimum length
+  - CKV_OCI_3   # Ensure OCI IAM password policy prevents password reuse
+  - CKV_OCI_4   # Ensure OCI IAM password policy requires symbols
+  - CKV_OCI_5   # Ensure OCI IAM password policy requires numbers
+  - CKV_OCI_6   # Ensure OCI IAM password policy requires lowercase letters
+  - CKV_OCI_7   # Ensure OCI IAM password policy requires uppercase letters
+  - CKV_OCI_8   # Ensure OCI IAM password policy requires password change within specific time
+  - CKV_OCI_9   # Ensure OCI Object Storage bucket is not publicly accessible
+  - CKV_OCI_10  # Ensure OCI Object Storage bucket has versioning enabled
+  - CKV_OCI_11  # Ensure OCI Object Storage bucket has server-side encryption
+  - CKV_OCI_12  # Ensure OCI Compute instance has secure boot enabled
+  - CKV_OCI_13  # Ensure OCI security group does not allow unrestricted ingress
+  - CKV_OCI_14  # Ensure OCI security group does not allow unrestricted egress
+  - CKV_OCI_15  # Ensure OCI VCN has DNS resolution enabled
+  
+  # General Terraform checks
+  - CKV_TF_1    # Ensure Terraform module sources use a commit hash
+  - CKV_TF_2    # Ensure that modules are referenced with specific versions
+  
+  # General security checks
+  - CKV_SECRET_1  # AWS Access Key
+  - CKV_SECRET_2  # AWS Secret Key
+  - CKV_SECRET_3  # Azure Storage Account access key
+  - CKV_SECRET_4  # Google API Key
+  - CKV_SECRET_5  # Private Key
+  - CKV_SECRET_6  # Generic API Key
+  - CKV_SECRET_13 # JWT Token
+  - CKV_SECRET_14 # Database connection string
+  
+  # Docker/Container checks (if applicable)
+  - CKV_DOCKER_1  # Ensure port 22 is not exposed
+  - CKV_DOCKER_2  # Ensure Docker daemon socket is not exposed
+  - CKV_DOCKER_3  # Ensure that a user for the container has been created
+
+# Skip specific checks (customize based on your needs)
+skip-check:
+  # Skip checks that might not be applicable to your environment
+  # - CKV_OCI_1  # Example: if you need to skip a specific check
+  
+  # Skip checks for development/testing environments
+  # - CKV_OCI_13  # Allow unrestricted ingress for dev environments
+  
+# Soft fail mode - don't exit with error code if issues found
+soft-fail: true
+
+# Suppress specific files/directories
+skip-path:
+  - ".terraform/"
+  - "**/.terraform/**"
+  - "**/terraform.tfstate*"
+  - "**/.git/**"
+  - "**/node_modules/**"
+  - "**/venv/**"
+  - "**/__pycache__/**"
+
+# Baseline file to compare against
+# baseline: ".checkov.baseline"
+
+# Create baseline file
+# create-baseline: false
+
+# CA certificate bundle (if needed for external module downloads)
+# ca-certificate: "/path/to/ca-bundle.crt"
+
+# Repository configuration
+repo-root-for-plan-enrichment: "."
+
+# Policy metadata
+use-enforcement-rules: true
+
+# Docker image scanning
+dockerfile-image-referencer: true
+
+# Custom severity levels
+severity:
+  HIGH: 
+    - CKV_OCI_9   # Public bucket access
+    - CKV_OCI_13  # Unrestricted ingress
+    - CKV_SECRET_1 # AWS keys
+    - CKV_SECRET_5 # Private keys
+  MEDIUM:
+    - CKV_OCI_10  # Bucket versioning
+    - CKV_OCI_11  # Bucket encryption
+  LOW:
+    - CKV_OCI_15  # DNS resolution
+
+# Annotation for specific resources (example)
+# annotations:
+#   resource_type:
+#     oci_core_instance:
+#       - "Ensure compute instances follow security best practices"
+#     oci_objectstorage_bucket:
+#       - "Ensure object storage buckets are secure"
+
+# External modules timeout (in seconds)
+external-modules-download-timeout: 300
+
+# Enable or disable specific runners
+enable-secret-scan-all-files: true
+
+# Block list for external modules
+# block-list-secret-scan:
+#   - "^.*\.tfstate$"
+#   - "^.*\.terraform/.*$"
+
+# SARIF output configuration
+sarif-file-path: "checkov-report.sarif"
+
+# JUnit XML output (for CI/CD integration)
+# junit-xml-file: "checkov-junit.xml"
+
+# Performance tuning
+parallel-runner-count: 50
+
