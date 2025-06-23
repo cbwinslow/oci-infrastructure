@@ -181,3 +181,14 @@ variable "db_user_password" {
   sensitive   = true
 }
 
+# Security Variables
+variable "allowed_ssh_cidr" {
+  description = "CIDR block allowed for SSH access - restrict to specific IPs for better security"
+  type        = string
+  default     = "0.0.0.0/0"  # Default allows all - CHANGE THIS for production!
+  validation {
+    condition     = can(cidrhost(var.allowed_ssh_cidr, 0))
+    error_message = "The allowed SSH CIDR must be a valid CIDR block."
+  }
+}
+

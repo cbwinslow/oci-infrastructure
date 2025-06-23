@@ -25,6 +25,12 @@ resource "oci_core_vcn" "database_vcn" {
   cidr_block     = var.vcn_cidr
 
   dns_label = "dbvcn"
+  
+  freeform_tags = {
+    "environment" = "development"
+    "managed-by"  = "terraform"
+    "owner"       = "infrastructure-team"
+  }
 }
 
 # Internet Gateway
@@ -32,6 +38,12 @@ resource "oci_core_internet_gateway" "database_ig" {
   compartment_id = var.compartment_id
   display_name   = "${var.db_name}-ig"
   vcn_id         = oci_core_vcn.database_vcn.id
+  
+  freeform_tags = {
+    "environment" = "development"
+    "managed-by"  = "terraform"
+    "owner"       = "infrastructure-team"
+  }
 }
 
 # Route Table
@@ -44,6 +56,12 @@ resource "oci_core_route_table" "database_rt" {
     destination       = "0.0.0.0/0"
     destination_type  = "CIDR_BLOCK"
     network_entity_id = oci_core_internet_gateway.database_ig.id
+  }
+  
+  freeform_tags = {
+    "environment" = "development"
+    "managed-by"  = "terraform"
+    "owner"       = "infrastructure-team"
   }
 }
 
@@ -204,6 +222,12 @@ resource "oci_core_security_list" "instance_security_list" {
     destination = "0.0.0.0/0"
     stateless   = false
   }
+  
+  freeform_tags = {
+    "environment" = "development"
+    "managed-by"  = "terraform"
+    "owner"       = "infrastructure-team"
+  }
 }
 
 # Compute Instance
@@ -216,6 +240,7 @@ resource "oci_core_instance" "app_instance" {
   create_vnic_details {
     subnet_id        = oci_core_subnet.instance_subnet.id
     assign_public_ip = true
+    nsg_ids         = [oci_core_network_security_group.ssh_security_group.id, oci_core_network_security_group.web_security_group.id]
   }
 
   source_details {
@@ -225,6 +250,23 @@ resource "oci_core_instance" "app_instance" {
 
   metadata = {
     ssh_authorized_keys = var.ssh_public_key
+  }
+
+  # Enable monitoring and management
+  agent_config {
+    are_all_plugins_disabled = false
+    is_management_disabled   = false
+    is_monitoring_disabled   = false
+    plugins_config {
+      name          = "Compute Instance Monitoring"
+      desired_state = "ENABLED"
+    }
+  }
+
+  freeform_tags = {
+    "environment" = "development"
+    "managed-by"  = "terraform"
+    "owner"       = "infrastructure-team"
   }
 
   # Cloud-init script to install Oracle Instant Client and required packages
@@ -258,6 +300,12 @@ resource "oci_core_volume" "app_volume" {
   compartment_id      = var.compartment_id
   display_name        = "${var.db_name}-volume"
   size_in_gbs         = var.volume_size_in_gbs
+  
+  freeform_tags = {
+    "environment" = "development"
+    "managed-by"  = "terraform"
+    "owner"       = "infrastructure-team"
+  }
 }
 
 # Volume Attachment
@@ -272,6 +320,86 @@ resource "oci_core_network_security_group" "database_security_group" {
   compartment_id = var.compartment_id
   vcn_id         = oci_core_vcn.database_vcn.id
   display_name   = "${var.db_name}-database-security-group"
+
+  freeform_tags = {
+    "environment" = "development"
+    "managed-by"  = "terraform"
+    "owner"       = "infrastructure-team"
+  }
+}
+
+# Enhanced Security Group for SSH Access
+resource "oci_core_network_security_group" "ssh_security_group" {
+  compartment_id = var.compartment_id
+  vcn_id         = oci_core_vcn.database_vcn.id
+  display_name   = "${var.db_name}-ssh-security-group"
+
+  freeform_tags = {
+    "environment" = "development"
+    "managed-by"  = "terraform"
+    "owner"       = "infrastructure-team"
+  }
+}
+
+# Secure SSH access rule - Consider restricting source to specific IPs
+resource "oci_core_network_security_group_security_rule" "ssh_ingress" {
+  network_security_group_id = oci_core_network_security_group.ssh_security_group.id
+  direction                 = "INGRESS"
+  protocol                  = "6" # TCP
+  source                    = var.allowed_ssh_cidr # Restrict to specific IPs instead of 0.0.0.0/0
+  source_type              = "CIDR_BLOCK"
+  
+  tcp_options {
+    destination_port_range {
+      min = 22
+      max = 22
+    }
+  }
+}
+
+# Web Security Group for HTTP/HTTPS Access
+resource "oci_core_network_security_group" "web_security_group" {
+  compartment_id = var.compartment_id
+  vcn_id         = oci_core_vcn.database_vcn.id
+  display_name   = "${var.db_name}-web-security-group"
+
+  freeform_tags = {
+    "environment" = "development"
+    "managed-by"  = "terraform"
+    "owner"       = "infrastructure-team"
+  }
+}
+
+# HTTPS access rule
+resource "oci_core_network_security_group_security_rule" "https_ingress" {
+  network_security_group_id = oci_core_network_security_group.web_security_group.id
+  direction                 = "INGRESS"
+  protocol                  = "6" # TCP
+  source                    = "0.0.0.0/0"
+  source_type              = "CIDR_BLOCK"
+  
+  tcp_options {
+    destination_port_range {
+      min = 443
+      max = 443
+    }
+  }
+}
+
+# HTTP access rule
+resource "oci_core_network_security_group_security_rule" "http_ingress" {
+  network_security_group_id = oci_core_network_security_group.web_security_group.id
+  direction                 = "INGRESS"
+  protocol                  = "6" # TCP
+  source                    = "0.0.0.0/0"
+  source_type              = "CIDR_BLOCK"
+  
+  tcp_options {
+    destination_port_range {
+      min = 80
+      max = 80
+    }
+  }
 }
 
 # NSG Rules for Database Access
@@ -288,6 +416,31 @@ resource "oci_core_network_security_group_security_rule" "database_security_rule
       min = 1522
       max = 1522
     }
+  }
+}
+
+# Log group for monitoring
+resource "oci_logging_log_group" "example" {
+  compartment_id = var.compartment_id
+  display_name   = "example-log-group"
+  
+  freeform_tags = {
+    "environment" = "development"
+    "managed-by"  = "terraform"
+    "owner"       = "infrastructure-team"
+  }
+}
+
+# Log for instance monitoring
+resource "oci_logging_log" "example" {
+  display_name = "example-instance-log"
+  log_group_id = oci_logging_log_group.example.id
+  log_type     = "SERVICE"
+  
+  freeform_tags = {
+    "environment" = "development"
+    "managed-by"  = "terraform"
+    "owner"       = "infrastructure-team"
   }
 }
 

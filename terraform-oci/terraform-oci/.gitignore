@@ -1,25 +1,122 @@
-# Local .terraform directories
+# Terraform files
 **/.terraform/*
-
-# .tfstate files
 *.tfstate
 *.tfstate.*
-
-# Crash log files
+*.tfvars
+*.tfvars.json
+*.tfplan
+.terraform.lock.hcl
 crash.log
 crash.*.log
 
-# Exclude sensitive variables files
-*.tfvars
-*.tfvars.json
-
-# Ignore CLI configuration files
+# Terraform CLI configuration
 .terraformrc
 terraform.rc
 
-# Ignore override files
+# Terraform override files
 override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+
+# OCI credentials and sensitive files
+.oci/
+*.pem
+*.key
+*.p12
+*.sso
+
+# Database wallet files
+wallet/
+*.zip
+cwallet.sso
+ewallet.p12
+tnsnames.ora
+sqlnet.ora
+
+# Environment and configuration files
+.env
+.env.*
+config.json
+config.yaml
+secrets.json
+secrets.yaml
+
+# Log files
+*.log
+logs/
+
+# Backup files
+backups/
+*.backup
+*.bak
+
+# Output files
+deployment_outputs.txt
+terraform_outputs.txt
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# SSH keys (never store in repository)
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+*.ppk
+
+# Node.js dependencies and files
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Python files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+*.egg-info/
+dist/
+build/
+
+# Coverage and testing
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+.pytest_cache/
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+*.temp
+
+# Sensitive documentation
+**/SECRETS.md
+**/PASSWORDS.md
+**/CREDENTIALS.md
+**/PRIVATE_*.md
 

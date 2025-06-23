@@ -132,3 +132,32 @@ output "connection_examples" {
   sensitive = true
 }
 
+# Monitoring and Logging Outputs
+output "log_group_info" {
+  description = "Log group information"
+  value = {
+    id           = oci_logging_log_group.example.id
+    display_name = oci_logging_log_group.example.display_name
+    state        = oci_logging_log_group.example.state
+  }
+}
+
+output "log_info" {
+  description = "Log information"
+  value = {
+    id           = oci_logging_log.example.id
+    display_name = oci_logging_log.example.display_name
+    log_type     = oci_logging_log.example.log_type
+    state        = oci_logging_log.example.state
+  }
+}
+
+output "monitoring_config" {
+  description = "Instance monitoring configuration status"
+  value = {
+    monitoring_enabled = true
+    management_enabled = true
+    plugins_enabled    = true
+  }
+}
+
