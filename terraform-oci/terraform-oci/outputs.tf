@@ -35,8 +35,8 @@ output "autonomous_database_connection_strings" {
 output "autonomous_database_connection_urls" {
   description = "Connection URLs for the Autonomous Database"
   value = {
-    jdbc_url = oci_database_autonomous_database.database.connection_urls[0].jdbc_url
-    apex_url = oci_database_autonomous_database.database.connection_urls[0].apex_url
+    jdbc_url    = oci_database_autonomous_database.database.connection_urls[0].jdbc_url
+    apex_url    = oci_database_autonomous_database.database.connection_urls[0].apex_url
     sql_dev_url = oci_database_autonomous_database.database.connection_urls[0].sql_dev_web_url
   }
   sensitive = true
@@ -94,7 +94,7 @@ output "volume_info" {
 output "security_groups" {
   description = "Security group information"
   value = {
-    instance_security_list = oci_core_security_list.instance_security_list.id
+    instance_security_list  = oci_core_security_list.instance_security_list.id
     database_security_group = oci_core_network_security_group.database_security_group.id
   }
 }
@@ -113,7 +113,7 @@ output "connection_examples" {
           config_dir="/home/ubuntu/.oracle/wallet/${var.db_name}"
       )
     EOT
-    
+
     typescript = <<-EOT
       import oracledb from 'oracledb';
       
@@ -124,9 +124,9 @@ output "connection_examples" {
         configDir: "/home/ubuntu/.oracle/wallet/${var.db_name}"
       });
     EOT
-    
+
     jdbc = "jdbc:oracle:thin:@${var.db_name}_high?TNS_ADMIN=/home/ubuntu/.oracle/wallet/${var.db_name}"
-    
+
     sqlplus = "sqlplus ${var.db_user_name}@${var.db_name}_high"
   }
   sensitive = true

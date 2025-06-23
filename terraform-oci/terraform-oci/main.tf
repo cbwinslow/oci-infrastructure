@@ -25,7 +25,7 @@ resource "oci_core_vcn" "database_vcn" {
   cidr_block     = var.vcn_cidr
 
   dns_label = "dbvcn"
-  
+
   freeform_tags = {
     "environment" = "development"
     "managed-by"  = "terraform"
@@ -38,7 +38,7 @@ resource "oci_core_internet_gateway" "database_ig" {
   compartment_id = var.compartment_id
   display_name   = "${var.db_name}-ig"
   vcn_id         = oci_core_vcn.database_vcn.id
-  
+
   freeform_tags = {
     "environment" = "development"
     "managed-by"  = "terraform"
@@ -57,7 +57,7 @@ resource "oci_core_route_table" "database_rt" {
     destination_type  = "CIDR_BLOCK"
     network_entity_id = oci_core_internet_gateway.database_ig.id
   }
-  
+
   freeform_tags = {
     "environment" = "development"
     "managed-by"  = "terraform"
@@ -73,8 +73,8 @@ resource "oci_core_security_list" "database_sl" {
 
   # Allow SQL*Net inbound
   ingress_security_rules {
-    protocol = "6" # TCP
-    source   = "0.0.0.0/0"  # Allow from any IP, adjust as needed
+    protocol = "6"         # TCP
+    source   = "0.0.0.0/0" # Allow from any IP, adjust as needed
 
     tcp_options {
       min = 1521
@@ -84,8 +84,8 @@ resource "oci_core_security_list" "database_sl" {
 
   # Allow HTTPS inbound for SQL Developer Web and APEX
   ingress_security_rules {
-    protocol = "6" # TCP
-    source   = "0.0.0.0/0"  # Allow from any IP, adjust as needed
+    protocol = "6"         # TCP
+    source   = "0.0.0.0/0" # Allow from any IP, adjust as needed
 
     tcp_options {
       min = 443
@@ -115,15 +115,15 @@ resource "oci_core_subnet" "database_subnet" {
 # Autonomous Database (Free Tier)
 resource "oci_database_autonomous_database" "database" {
   compartment_id           = var.compartment_id
-  cpu_core_count          = 1  # Free tier: 1 OCPU
-  data_storage_size_in_tbs = 1  # Free tier: 1 TB
-  db_name                 = var.db_name
-  admin_password          = var.db_admin_password
-  display_name            = var.db_name
-  db_version              = var.db_version
-  db_workload             = var.db_workload
-  is_free_tier            = true
-  license_model           = "LICENSE_INCLUDED"
+  cpu_core_count           = 1 # Free tier: 1 OCPU
+  data_storage_size_in_tbs = 1 # Free tier: 1 TB
+  db_name                  = var.db_name
+  admin_password           = var.db_admin_password
+  display_name             = var.db_name
+  db_version               = var.db_version
+  db_workload              = var.db_workload
+  is_free_tier             = true
+  license_model            = "LICENSE_INCLUDED"
 
   # Free tier specific settings
   is_auto_scaling_enabled = false
@@ -141,9 +141,9 @@ data "oci_identity_availability_domains" "ads" {
 # Generate Wallet
 resource "oci_database_autonomous_database_wallet" "database_wallet" {
   autonomous_database_id = oci_database_autonomous_database.database.id
-  password              = var.wallet_password
-  generate_type         = "SINGLE"
-  base64_encode_content = true
+  password               = var.wallet_password
+  generate_type          = "SINGLE"
+  base64_encode_content  = true
 }
 
 # Save wallet to a local file
@@ -157,9 +157,9 @@ resource "local_file" "database_wallet_file" {
 # Create database user
 resource "oci_database_autonomous_database_database_user" "app_user" {
   autonomous_database_id = oci_database_autonomous_database.database.id
-  username              = var.db_user_name
-  password              = var.db_user_password
-  roles                 = ["CONNECT", "RESOURCE"]
+  username               = var.db_user_name
+  password               = var.db_user_password
+  roles                  = ["CONNECT", "RESOURCE"]
 }
 
 # Instance Subnet
@@ -168,7 +168,7 @@ resource "oci_core_subnet" "instance_subnet" {
   vcn_id         = oci_core_vcn.database_vcn.id
   display_name   = "${var.db_name}-instance-subnet"
   cidr_block     = var.instance_subnet_cidr
-  
+
   security_list_ids = [oci_core_security_list.instance_security_list.id]
   route_table_id    = oci_core_route_table.database_rt.id
   dns_label         = "instsubnet"
@@ -222,7 +222,7 @@ resource "oci_core_security_list" "instance_security_list" {
     destination = "0.0.0.0/0"
     stateless   = false
   }
-  
+
   freeform_tags = {
     "environment" = "development"
     "managed-by"  = "terraform"
@@ -240,7 +240,7 @@ resource "oci_core_instance" "app_instance" {
   create_vnic_details {
     subnet_id        = oci_core_subnet.instance_subnet.id
     assign_public_ip = true
-    nsg_ids         = [oci_core_network_security_group.ssh_security_group.id, oci_core_network_security_group.web_security_group.id]
+    nsg_ids          = [oci_core_network_security_group.ssh_security_group.id, oci_core_network_security_group.web_security_group.id]
   }
 
   source_details {
@@ -300,7 +300,7 @@ resource "oci_core_volume" "app_volume" {
   compartment_id      = var.compartment_id
   display_name        = "${var.db_name}-volume"
   size_in_gbs         = var.volume_size_in_gbs
-  
+
   freeform_tags = {
     "environment" = "development"
     "managed-by"  = "terraform"
@@ -345,10 +345,10 @@ resource "oci_core_network_security_group" "ssh_security_group" {
 resource "oci_core_network_security_group_security_rule" "ssh_ingress" {
   network_security_group_id = oci_core_network_security_group.ssh_security_group.id
   direction                 = "INGRESS"
-  protocol                  = "6" # TCP
+  protocol                  = "6"                  # TCP
   source                    = var.allowed_ssh_cidr # Restrict to specific IPs instead of 0.0.0.0/0
-  source_type              = "CIDR_BLOCK"
-  
+  source_type               = "CIDR_BLOCK"
+
   tcp_options {
     destination_port_range {
       min = 22
@@ -376,8 +376,8 @@ resource "oci_core_network_security_group_security_rule" "https_ingress" {
   direction                 = "INGRESS"
   protocol                  = "6" # TCP
   source                    = "0.0.0.0/0"
-  source_type              = "CIDR_BLOCK"
-  
+  source_type               = "CIDR_BLOCK"
+
   tcp_options {
     destination_port_range {
       min = 443
@@ -392,8 +392,8 @@ resource "oci_core_network_security_group_security_rule" "http_ingress" {
   direction                 = "INGRESS"
   protocol                  = "6" # TCP
   source                    = "0.0.0.0/0"
-  source_type              = "CIDR_BLOCK"
-  
+  source_type               = "CIDR_BLOCK"
+
   tcp_options {
     destination_port_range {
       min = 80
@@ -407,10 +407,10 @@ resource "oci_core_network_security_group_security_rule" "database_security_rule
   network_security_group_id = oci_core_network_security_group.database_security_group.id
   direction                 = "INGRESS"
   protocol                  = "6" # TCP
-  
-  source                    = oci_core_subnet.instance_subnet.cidr_block
-  source_type               = "CIDR_BLOCK"
-  
+
+  source      = oci_core_subnet.instance_subnet.cidr_block
+  source_type = "CIDR_BLOCK"
+
   tcp_options {
     destination_port_range {
       min = 1522
@@ -423,7 +423,7 @@ resource "oci_core_network_security_group_security_rule" "database_security_rule
 resource "oci_logging_log_group" "example" {
   compartment_id = var.compartment_id
   display_name   = "example-log-group"
-  
+
   freeform_tags = {
     "environment" = "development"
     "managed-by"  = "terraform"
@@ -436,7 +436,7 @@ resource "oci_logging_log" "example" {
   display_name = "example-instance-log"
   log_group_id = oci_logging_log_group.example.id
   log_type     = "SERVICE"
-  
+
   freeform_tags = {
     "environment" = "development"
     "managed-by"  = "terraform"

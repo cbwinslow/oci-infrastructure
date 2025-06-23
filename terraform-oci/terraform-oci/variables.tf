@@ -12,7 +12,7 @@ variable "tenancy_ocid" {
   type        = string
   sensitive   = true
   validation {
-    condition     = can(regex("^ocid1\.tenancy\.oc1\..+$", var.tenancy_ocid))
+    condition     = can(regex("^ocid1\\.tenancy\\.oc1\\..+$", var.tenancy_ocid))
     error_message = "The tenancy_ocid value must be a valid OCI tenancy OCID."
   }
 }
@@ -22,7 +22,7 @@ variable "user_ocid" {
   type        = string
   sensitive   = true
   validation {
-    condition     = can(regex("^ocid1\.user\.oc1\..+$", var.user_ocid))
+    condition     = can(regex("^ocid1\\.user\\.oc1\\..+$", var.user_ocid))
     error_message = "The user_ocid value must be a valid OCI user OCID."
   }
 }
@@ -52,7 +52,7 @@ variable "compartment_id" {
   description = "OCID of the compartment where the database will be created"
   type        = string
   validation {
-    condition     = can(regex("^ocid1\.compartment\.oc1\..+$", var.compartment_id))
+    condition     = can(regex("^ocid1\\.compartment\\.oc1\\..+$", var.compartment_id))
     error_message = "The compartment_id value must be a valid OCI compartment OCID."
   }
 }
@@ -140,7 +140,7 @@ variable "wallet_password" {
 variable "instance_shape" {
   description = "The shape of compute instance to launch"
   type        = string
-  default     = "VM.Standard.E2.1.Micro"  # Free tier eligible
+  default     = "VM.Standard.E2.1.Micro" # Free tier eligible
 }
 
 variable "instance_image_id" {
@@ -185,7 +185,7 @@ variable "db_user_password" {
 variable "allowed_ssh_cidr" {
   description = "CIDR block allowed for SSH access - restrict to specific IPs for better security"
   type        = string
-  default     = "0.0.0.0/0"  # Default allows all - CHANGE THIS for production!
+  default     = "0.0.0.0/0" # Default allows all - CHANGE THIS for production!
   validation {
     condition     = can(cidrhost(var.allowed_ssh_cidr, 0))
     error_message = "The allowed SSH CIDR must be a valid CIDR block."
