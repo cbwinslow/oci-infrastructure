@@ -1,0 +1,13 @@
+# Authentication
+tenancy_ocid     = "ocid1.tenancy.oc1..xxxxxxxxxxxxxxxxxxxx"
+user_ocid        = "ocid1.user.oc1..xxxxxxxxxxxxxxxxxxxx"
+fingerprint      = "xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx"
+private_key_path = "~/.oci/oci_api_key.pem"
+region           = "us-phoenix-1"  # Change to your desired region
+
+# Resource Configuration
+compartment_id      = "ocid1.compartment.oc1..xxxxxxxxxxxxxxxxxxxx"
+availability_domain = "XXXX:PHX-AD-1"  # Change to your AD
+image_id           = "ocid1.image.oc1..xxxxxxxxxxxxxxxxxxxx"
+subnet_id          = "ocid1.subnet.oc1..xxxxxxxxxxxxxxxxxxxx"
+

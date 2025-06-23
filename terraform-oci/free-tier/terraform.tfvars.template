@@ -1,0 +1,17 @@
+# Authentication
+tenancy_ocid     = "ocid1.tenancy.oc1..xxxxxxxxxxxxxxxxxxxx"
+user_ocid        = "ocid1.user.oc1..xxxxxxxxxxxxxxxxxxxx"
+fingerprint      = "xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx"
+private_key_path = "~/.oci/oci_api_key.pem"
+
+# Compartment
+compartment_id   = "ocid1.compartment.oc1..xxxxxxxxxxxxxxxxxxxx"
+
+# Instance
+instance_image_id = "ocid1.image.oc1.iad.xxxxxxxxxxxxxxxxxxxx"  # Ubuntu 20.04
+ssh_public_key    = "ssh-rsa AAAAB3NzaC1..."
+
+# Database
+adb_password     = "YourSecurePassword123!"
+wallet_password  = "YourWalletPassword123!"
+
