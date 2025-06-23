@@ -9,9 +9,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 LOG_FILE="${PROJECT_ROOT}/logs/jira-integration.log"
+ENV_FILE="${PROJECT_ROOT}/.env.jira"
 
 # Create logs directory if it doesn't exist
 mkdir -p "$(dirname "$LOG_FILE")"
+
+# Load environment variables if .env.jira exists
+if [[ -f "$ENV_FILE" ]]; then
+    source "$ENV_FILE"
+fi
 
 # Logging function
 log() {
@@ -31,12 +37,23 @@ check_env_vars() {
         "JIRA_EMAIL"
         "JIRA_API_TOKEN"
         "JIRA_PROJECT_KEY"
+    )
+    
+    # GITHUB_TOKEN is optional for read-only operations
+    local optional_vars=(
         "GITHUB_TOKEN"
+        "GITHUB_REPOSITORY"
     )
     
     for var in "${required_vars[@]}"; do
         if [[ -z "${!var:-}" ]]; then
-            error_exit "Required environment variable $var is not set"
+            error_exit "Required environment variable $var is not set. Run './scripts/setup-jira-integration.sh' to configure."
+        fi
+    done
+    
+    for var in "${optional_vars[@]}"; do
+        if [[ -z "${!var:-}" ]]; then
+            log "WARNING: Optional environment variable $var is not set"
         fi
     done
 }
@@ -278,6 +295,51 @@ EOF
     jira_api_call "webhook" "POST" "$webhook_payload"
 }
 
+# Test JIRA connection and configuration
+test_connection() {
+    log "Testing JIRA integration configuration"
+    
+    echo "🧪 Testing JIRA Connection"
+    echo "==========================="
+    
+    # Test JIRA authentication
+    echo -n "Testing JIRA authentication... "
+    if user_info=$(jira_api_call "myself" 2>/dev/null); then
+        user_name=$(echo "$user_info" | jq -r '.displayName // "Unknown"')
+        echo "✅ Success! Authenticated as: $user_name"
+    else
+        echo "❌ Failed"
+        error_exit "JIRA authentication failed. Please check your credentials."
+    fi
+    
+    # Test project access
+    echo -n "Testing project access... "
+    if project_info=$(jira_api_call "project/${JIRA_PROJECT_KEY}" 2>/dev/null); then
+        project_name=$(echo "$project_info" | jq -r '.name // "Unknown"')
+        echo "✅ Success! Project: $project_name"
+    else
+        echo "❌ Failed"
+        error_exit "Cannot access project ${JIRA_PROJECT_KEY}. Please verify project key."
+    fi
+    
+    # Test GitHub access (if token provided)
+    if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+        echo -n "Testing GitHub access... "
+        if repo_info=$(github_api_call "repos/${GITHUB_REPOSITORY}" 2>/dev/null); then
+            repo_name=$(echo "$repo_info" | jq -r '.full_name // "Unknown"')
+            echo "✅ Success! Repository: $repo_name"
+        else
+            echo "⚠️  Failed (GitHub operations will be limited)"
+        fi
+    else
+        echo "⚠️  GitHub token not provided (read-only mode)"
+    fi
+    
+    echo
+    echo "✅ Configuration test completed successfully!"
+    echo "Run './scripts/jira-integration.sh sync' to synchronize issues."
+}
+
 # Generate integration report
 generate_report() {
     log "Generating JIRA integration report"
@@ -319,6 +381,9 @@ main() {
     
     # Parse command line arguments
     case "${1:-sync}" in
+        "test")
+            test_connection
+            ;;
         "sync")
             sync_github_to_jira
             ;;
@@ -338,6 +403,7 @@ JIRA Integration Script
 Usage: $0 [command]
 
 Commands:
+    test            Test JIRA and GitHub connection and configuration
     sync            Synchronize GitHub issues to JIRA (default)
     monitor         Monitor JIRA tickets for status changes
     setup-webhook   Setup JIRA webhook for real-time sync

@@ -94,12 +94,36 @@ The project includes automated CI/CD integration via `.github/workflows/project-
 ### Setup Requirements
 To enable JIRA integration, configure the following:
 
-1. **JIRA API Credentials**
+#### Method 1: Automated Setup (Recommended)
+```bash
+# Run the interactive setup script
+./scripts/setup-jira-integration.sh
+```
+
+#### Method 2: Manual Configuration
+1. **Edit Environment File**
    ```bash
-   # Add to GitHub Secrets
-   JIRA_BASE_URL=https://your-domain.atlassian.net
-   JIRA_EMAIL=your-email@domain.com
-   JIRA_API_TOKEN=your-api-token
+   # Edit .env.jira file
+   nano .env.jira
+   
+   # Configure your JIRA settings:
+   export JIRA_BASE_URL="https://cloudcurio.atlassian.net"
+   export JIRA_EMAIL="blaine.winslow@gmail.com"
+   export JIRA_API_TOKEN="your-api-token"
+   export JIRA_PROJECT_KEY="OCIINFRA"
+   export GITHUB_REPOSITORY="cbwinslow/oci-infrastructure"
+   ```
+
+2. **Test Configuration**
+   ```bash
+   # Load environment variables
+   source .env.jira
+   
+   # Test connection
+   ./scripts/jira-integration.sh test
+   
+   # Sync existing issues
+   ./scripts/jira-integration.sh sync
    ```
 
 2. **Webhook Configuration**
