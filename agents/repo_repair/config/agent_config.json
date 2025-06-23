@@ -1,0 +1,78 @@
+{
+  "agent_type": "repo_repair",
+  "metadata": {
+    "author": "cbwinslow",
+    "license": "MIT",
+    "tags": ["repository", "repair", "maintenance", "git", "devops"],
+    "category": "infrastructure"
+  },
+  "runtime": {
+    "language": "bash",
+    "minimum_version": "4.0",
+    "dependencies": [
+      "git",
+      "jq",
+      "curl",
+      "find",
+      "chmod",
+      "chown"
+    ]
+  },
+  "configuration": {
+    "environment": {
+      "REPO_REPAIR_LOG_LEVEL": "INFO",
+      "REPO_REPAIR_TIMEOUT": "300",
+      "REPO_REPAIR_MAX_RETRIES": "3"
+    },
+    "parameters": {
+      "auto_fix": {
+        "type": "boolean",
+        "default": false,
+        "description": "Automatically fix common repository issues"
+      },
+      "backup_before_fix": {
+        "type": "boolean",
+        "default": true,
+        "description": "Create backup before applying fixes"
+      },
+      "dry_run": {
+        "type": "boolean",
+        "default": false,
+        "description": "Show what would be done without making changes"
+      },
+      "notification_webhook": {
+        "type": "string",
+        "default": "",
+        "description": "Webhook URL for notifications"
+      }
+    }
+  },
+  "security": {
+    "permissions": {
+      "read": ["repository", "git_config", "file_system"],
+      "write": ["repository", "git_config", "file_permissions"],
+      "execute": ["git_commands", "file_operations"]
+    },
+    "sandbox": {
+      "enabled": true,
+      "allowed_paths": ["/tmp", "/var/tmp", "${HOME}/.git", "${REPO_PATH}"],
+      "blocked_commands": ["rm -rf /", "sudo", "su", "passwd"]
+    }
+  },
+  "health_check": {
+    "endpoint": "/health",
+    "interval": 30,
+    "timeout": 10
+  },
+  "logging": {
+    "level": "INFO",
+    "format": "json",
+    "output": "/var/log/repo_repair.log",
+    "rotation": {
+      "enabled": true,
+      "max_size": "10MB",
+      "max_files": 5
+    }
+  }
+}
+
