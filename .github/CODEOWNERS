@@ -1,0 +1,21 @@
+# Global Owners
+* @cbwinslow
+
+# Terraform Infrastructure
+/terraform/ @cbwinslow
+/terraform-oci/ @cbwinslow
+
+# GitHub Actions and CI/CD
+/.github/ @cbwinslow
+
+# Documentation
+/docs/ @cbwinslow
+*.md @cbwinslow
+
+# Security and Compliance
+/SECURITY.md @cbwinslow
+/.github/workflows/ @cbwinslow
+
+# Scripts and Automation
+/scripts/ @cbwinslow
+

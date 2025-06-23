@@ -23,7 +23,7 @@ output "autonomous_database_id" {
 
 output "autonomous_database_state" {
   description = "The current state of the Autonomous Database"
-  value       = oci_database_autonomous_database.database.lifecycle_state
+  value       = oci_database_autonomous_database.database.state
 }
 
 output "autonomous_database_connection_strings" {
@@ -33,13 +33,12 @@ output "autonomous_database_connection_strings" {
 }
 
 output "autonomous_database_connection_urls" {
-  description = "Connection URLs for the Autonomous Database"
+  description = "Connection URLs for the Autonomous Database - Available in OCI Console"
   value = {
-    jdbc_url    = oci_database_autonomous_database.database.connection_urls[0].jdbc_url
-    apex_url    = oci_database_autonomous_database.database.connection_urls[0].apex_url
-    sql_dev_url = oci_database_autonomous_database.database.connection_urls[0].sql_dev_web_url
+    note = "Connection URLs are available in the OCI Console under Autonomous Database > DB Connection"
+    console_url = "https://cloud.oracle.com/db/autonomous/"
   }
-  sensitive = true
+  sensitive = false
 }
 
 output "autonomous_database_wallet" {
@@ -52,7 +51,8 @@ output "autonomous_database_wallet" {
 output "autonomous_database_backup_config" {
   description = "The backup configuration"
   value = {
-    retention_days = var.backup_retention_days
+    backup_policy = "Automatic backups are enabled by default for Autonomous Database"
+    retention_policy = "Automatic retention according to Oracle's backup policy"
   }
 }
 

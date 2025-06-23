@@ -129,8 +129,8 @@ resource "oci_database_autonomous_database" "database" {
   is_auto_scaling_enabled = false
   is_dedicated            = false
 
-  # Backup configuration
-  backup_retention_days = var.backup_retention_days
+  # Backup configuration - Autonomous Database handles backups automatically
+  # backup_retention_days is not a configurable parameter for Autonomous Database
 }
 
 # Data source for Availability Domains
@@ -155,12 +155,15 @@ resource "local_file" "database_wallet_file" {
 }
 
 # Create database user
-resource "oci_database_autonomous_database_database_user" "app_user" {
-  autonomous_database_id = oci_database_autonomous_database.database.id
-  username               = var.db_user_name
-  password               = var.db_user_password
-  roles                  = ["CONNECT", "RESOURCE"]
-}
+# Note: Database users must be created manually or via SQL scripts
+# after the database is provisioned. The OCI provider does not have
+# a resource for creating database users in Autonomous Database.
+# Use the outputs to connect and create users via SQL*Plus or SQL Developer.
+#
+# Example SQL to create user (execute after database creation):
+# CREATE USER app_user IDENTIFIED BY "your_password";
+# GRANT CONNECT, RESOURCE TO app_user;
+# GRANT UNLIMITED TABLESPACE TO app_user;
 
 # Instance Subnet
 resource "oci_core_subnet" "instance_subnet" {
