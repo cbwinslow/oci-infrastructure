@@ -1,0 +1,136 @@
+# OCI Infrastructure Configuration Template
+# Copy this file to terraform.tfvars and fill in your specific values
+# IMPORTANT: Keep terraform.tfvars secure and never commit it to version control
+
+# =============================================================================
+# OCI Authentication (Required)
+# =============================================================================
+
+# Your OCI region (e.g., us-ashburn-1, us-phoenix-1, uk-london-1)
+region = "us-ashburn-1"
+
+# Your OCI compartment OCID where resources will be created
+compartment_id = "ocid1.compartment.oc1..aaaaaaaaxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# Your OCI tenancy OCID
+tenancy_ocid = "ocid1.tenancy.oc1..aaaaaaaaxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# Your OCI user OCID (the user deploying the infrastructure)
+user_ocid = "ocid1.user.oc1..aaaaaaaaxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# Your OCI API key fingerprint (format: xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx)
+fingerprint = "aa:bb:cc:dd:ee:ff:11:22:33:44:55:66:77:88:99:00:aa:bb:cc:dd"
+
+# Path to your OCI API private key file
+private_key_path = "~/.oci/oci_api_key.pem"
+
+# =============================================================================
+# Instance Configuration (Required)
+# =============================================================================
+
+# Your SSH public key content (for instance access)
+ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC... your-email@example.com"
+
+# Ubuntu 20.04 LTS image OCID for your region
+# To find the correct OCID for your region, run:
+# oci compute image list --compartment-id <tenancy-ocid> --operating-system "Canonical Ubuntu" --sort-by TIMECREATED --sort-order DESC
+instance_image_id = "ocid1.image.oc1.iad.aaaaaaaaxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# Instance shape (Free Tier eligible)
+instance_shape = "VM.Standard.E2.1.Micro"
+
+# =============================================================================
+# Database Configuration (Required)
+# =============================================================================
+
+# Database name (1-12 characters, must start with letter, alphanumeric only)
+db_name = "ORCL"
+
+# Database admin password (minimum 12 characters, must include upper, lower, number, special char)
+# Example: "MySecurePass123#"
+db_admin_password = "CHANGE_ME_SECURE_PASS_123#"
+
+# Application database user name
+db_user_name = "app_user"
+
+# Application database user password (minimum 12 characters, must include upper, lower, number, special char)
+# Example: "AppUserPass456#"
+db_user_password = "CHANGE_ME_APP_PASS_456#"
+
+# Database wallet password (minimum 8 characters)
+# Example: "WalletPass789#"
+wallet_password = "CHANGE_ME_WALLET_789#"
+
+# Database version (19c or 21c)
+db_version = "19c"
+
+# Database workload type (OLTP, DW, AJD, APEX)
+db_workload = "OLTP"
+
+# =============================================================================
+# Network Configuration (Optional - defaults provided)
+# =============================================================================
+
+# Virtual Cloud Network CIDR block
+vcn_cidr = "10.0.0.0/16"
+
+# Database subnet CIDR block
+subnet_cidr = "10.0.1.0/24"
+
+# Instance subnet CIDR block
+instance_subnet_cidr = "10.0.2.0/24"
+
+# Allowed CIDR block for SSH access
+# SECURITY WARNING: Default allows all IPs. Restrict to your network for production!
+# Example: "203.0.113.0/24" for your office network
+allowed_ssh_cidr = "0.0.0.0/0"
+
+# =============================================================================
+# Storage Configuration (Optional - defaults provided)
+# =============================================================================
+
+# Block volume size in GB
+volume_size_in_gbs = 50
+
+# Database backup retention in days (7-60)
+backup_retention_days = 30
+
+# =============================================================================
+# Configuration Notes
+# =============================================================================
+
+# 1. To find your OCI information:
+#    - Tenancy OCID: OCI Console → Administration → Tenancy Details
+#    - User OCID: OCI Console → Identity → Users → Your User
+#    - Compartment OCID: OCI Console → Identity → Compartments
+#    - Region: Currently selected region in OCI Console
+
+# 2. To generate SSH keys (if you don't have them):
+#    ssh-keygen -t rsa -b 4096 -C "your-email@example.com"
+#    cat ~/.ssh/id_rsa.pub  # Copy this output for ssh_public_key
+
+# 3. To find Ubuntu image OCID for your region:
+#    oci compute image list \
+#      --compartment-id <your-tenancy-ocid> \
+#      --operating-system "Canonical Ubuntu" \
+#      --sort-by TIMECREATED --sort-order DESC \
+#      --query 'data[?contains("display-name", `Ubuntu-20.04`)] | [0].id' \
+#      --raw-output
+
+# 4. Password requirements:
+#    - Database passwords: 12+ chars, upper+lower+number+special
+#    - Wallet password: 8+ chars
+#    - Avoid common dictionary words
+
+# 5. Security recommendations:
+#    - Restrict allowed_ssh_cidr to your network
+#    - Use strong, unique passwords
+#    - Store this file securely and never commit to version control
+#    - Consider using environment variables for sensitive values
+
+# 6. Free Tier limits:
+#    - 2 Autonomous Databases (Always Free)
+#    - 2 Compute instances (Always Free)
+#    - 200GB total block storage
+#    - Always verify current Free Tier limits in OCI documentation
+
